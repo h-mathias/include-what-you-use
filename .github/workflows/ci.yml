@@ -1,125 +1,44 @@
-name: IWYU CI
+name: Build Windows
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-
-    env:
-      LLVM_TAG:
+    runs-on: windows-latest
 
     steps:
-      - name: Install prerequisites
-        run: |
-          wget -O- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/llvm-snapshot.asc
-          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble$LLVM_TAG main"
-          sudo apt update
-          # Remove any base dist LLVM/Clang installations
-          sudo apt remove -y \
-               "libclang*" \
-               "clang*" \
-               "llvm*" \
-               "libc++*"
-          # Reinstall tagged versions
-          sudo apt install -y \
-               ninja-build \
-               llvm$LLVM_TAG-dev \
-               libclang$LLVM_TAG-dev \
-               clang$LLVM_TAG \
-               libc++$LLVM_TAG-dev
-
-      - name: Capture LLVM major version and install prefix
-        run: |
-          LLVM_MAJOR=$(ls -1d /usr/lib/llvm-* | sort -n | tail -n1 | sed 's/.*llvm-//')
-          LLVM_PREFIX=$(llvm-config-$LLVM_MAJOR --prefix)
-          echo "LLVM_MAJOR=${LLVM_MAJOR}" | tee -a $GITHUB_ENV
-          echo "LLVM_PREFIX=${LLVM_PREFIX}" | tee -a $GITHUB_ENV
-
-      - name: Check out branch
-        uses: actions/checkout@v7
-
-      - name: Work around broken packaging
-        run: |
-          # Disable CMake target checks.
-          # sudo ./iwyu-fixup-llvm-target-checks.bash "$LLVM_PREFIX"
-
-      - name: Build include-what-you-use with LLVM ${{ env.LLVM_MAJOR }}
-        run: |
-          mkdir build
-          cd ./build
-          cmake -G Ninja \
-                -DCMAKE_EXPORT_COMPILE_COMMANDS=on \
-                -DCMAKE_C_COMPILER=clang$LLVM_TAG \
-                -DCMAKE_CXX_COMPILER=clang++$LLVM_TAG \
-                -DCMAKE_PREFIX_PATH=$LLVM_PREFIX \
-                -DCMAKE_INSTALL_PREFIX=./ \
-                -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=on \
-                ../
-          ninja
-
-      - name: Test mappings export
-        run: |
-          # Ask IWYU to export mappings
-          ./build/bin/include-what-you-use -Xiwyu --export_mappings=./build/mappings
-          # Collect all exported files and print them. Fail if none exist.
-          exported=$(ls -A ./build/mappings/)
-          if [[ -n "$exported" ]]; then
-              echo "exported mapping files:"
-              echo "$exported"
-          else
-              echo "error: no files exported"
-              exit 1
-          fi
-
-      - name: Test include-what-you-use
-        run: |
-          cd ./build
-          CTEST_OUTPUT_ON_FAILURE=1 ctest -j 6
-
-      - name: Test include-what-you-use (stdin)
-        run: |
-          ./iwyu-run-stdin-tests.bash ./build/bin/include-what-you-use
-
-      - name: Check if any known bugs were fixed
-        run: |
-          ./run_iwyu_tests.py --extra-suite=bugs bugs -- ./build/bin/include-what-you-use
-
-      - name: Test install
-        run: |
-          cd ./build
-          cmake --install .
-
-      - name: Check license headers
-        run: |
-          git ls-tree --full-tree --name-only -r HEAD | \
-              grep -v "^vendor/" | \
-              xargs ./iwyu-check-license-header.py
-
-      - name: IWYU dogfood
-        run: |
-          ./iwyu-dogfood.bash ./build
-          # Write to step summary primarily for scheduled builds.
-          cat ./iwyu-dogfood.md >> $GITHUB_STEP_SUMMARY
-
-      # Hand over payloads for PR comments to separate workflow via artifact.
-      - name: Prepare PR comment payload
-        if: github.event_name == 'pull_request'
-        env:
-          PR_API_URL: ${{ github.event.pull_request.comments_url }}
-        run: |
-          mkdir ./pr-comments
-          echo "$PR_API_URL" > ./pr-comments/api-url
-          cp ./iwyu-dogfood.md ./pr-comments/
-
-      - name: Upload PR comment payload
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v7
+      - name: Checkout IWYU
+        uses: actions/checkout@v4
         with:
-          name: pr-comments
-          path: ./pr-comments
-          retention-days: 1
-          if-no-files-found: error
+          path: include-what-you-use
+
+      - name: Checkout LLVM
+        uses: actions/checkout@v4
+        with:
+          repository: llvm/llvm-project
+          ref: clang_21
+          path: llvm-project
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake `
+            -S llvm-project/llvm `
+            -B build `
+            -G Ninja `
+            -DLLVM_ENABLE_PROJECTS=clang `
+            -DLLVM_EXTERNAL_PROJECTS=include-what-you-use `
+            -DLLVM_EXTERNAL_INCLUDE_WHAT_YOU_USE_SOURCE_DIR="${{ github.workspace }}/include-what-you-use" `
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --target include-what-you-use
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: include-what-you-use-windows
+          path: |
+            build/bin/include-what-you-use.exe
+            build/**/include-what-you-use.exe
