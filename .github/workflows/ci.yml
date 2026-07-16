@@ -1,7 +1,13 @@
-name: Build Windows
+name: Windows Build
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+
+env:
+  LLVM_REF: llvmorg-22.1.8
 
 jobs:
   build:
@@ -17,25 +23,39 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: llvm/llvm-project
-          ref: clang_21
+          ref: ${{ env.LLVM_REF }}
           path: llvm-project
 
-      - name: Configure
+      - name: Restore LLVM build cache
+        id: llvm-cache
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: llvm-${{ runner.os }}-${{ env.LLVM_REF }}-ninja
+
+      - name: Configure LLVM
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           cmake `
             -S llvm-project/llvm `
             -B build `
             -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
             -DLLVM_ENABLE_PROJECTS=clang `
             -DLLVM_EXTERNAL_PROJECTS=include-what-you-use `
-            -DLLVM_EXTERNAL_INCLUDE_WHAT_YOU_USE_SOURCE_DIR="${{ github.workspace }}/include-what-you-use" `
-            -DCMAKE_BUILD_TYPE=Release
+            -DLLVM_EXTERNAL_INCLUDE_WHAT_YOU_USE_SOURCE_DIR="${{ github.workspace }}/include-what-you-use"
 
-      - name: Build
-        run: cmake --build build --target include-what-you-use
+      - name: Build LLVM + Clang
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        run: |
+          cmake --build build --config Release --target clang
 
-      - name: Upload artifact
+      - name: Build include-what-you-use
+        run: |
+          cmake --build build --config Release --target include-what-you-use
+
+      - name: Upload include-what-you-use.exe
         uses: actions/upload-artifact@v4
         with:
           name: include-what-you-use-windows
