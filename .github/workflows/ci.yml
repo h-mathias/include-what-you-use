@@ -47,6 +47,7 @@ jobs:
       # Configure LLVM
       # -------------------------
       - name: Configure LLVM
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           cmake `
@@ -63,6 +64,7 @@ jobs:
       # Build LLVM + Clang
       # -------------------------
       - name: Build LLVM + Clang
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
         run: |
           cmake --build build-llvm --target clang --config Release
           cmake --build build-llvm --target install --config Release
@@ -71,7 +73,7 @@ jobs:
       # Save LLVM cache immediately
       # -------------------------
       - name: Save LLVM cache
-        if: success()
+        if: steps.llvm-cache.outputs.cache-hit != 'true' && success()
         uses: actions/cache/save@v4
         with:
           path: build-llvm
@@ -88,8 +90,8 @@ jobs:
             -B build-iwyu `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DLLVM_DIR="build-llvm/install/lib/cmake/llvm" `
-            -DClang_DIR="build-llvm/install/lib/cmake/clang"
+            -DLLVM_DIR="install/lib/cmake/llvm" `
+            -DClang_DIR="install/lib/cmake/clang"
 
       # -------------------------
       # Build IWYU
