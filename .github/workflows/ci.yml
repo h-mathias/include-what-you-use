@@ -8,7 +8,7 @@ on:
 
 env:
   LLVM_REF: llvmorg-22.1.8
-  CACHE_VERSION: v1
+  CACHE_VERSION: v2
 
 jobs:
   build:
@@ -23,13 +23,6 @@ jobs:
         with:
           path: include-what-you-use
 
-      - name: Checkout LLVM
-        uses: actions/checkout@v4
-        with:
-          repository: llvm/llvm-project
-          ref: ${{ env.LLVM_REF }}
-          path: llvm-project
-
       # -------------------------
       # Restore LLVM cache
       # -------------------------
@@ -42,6 +35,14 @@ jobs:
           restore-keys: |
             llvm-${{ runner.os }}-${{ env.LLVM_REF }}-clang-
             llvm-${{ runner.os }}-
+            
+      - name: Checkout LLVM
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: llvm/llvm-project
+          ref: ${{ env.LLVM_REF }}
+          path: llvm-project
 
       # -------------------------
       # Configure LLVM
@@ -55,7 +56,7 @@ jobs:
             -B build-llvm `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_INSTALL_PREFIX=install `
+            -DCMAKE_INSTALL_PREFIX=llvm-install `
             -DLLVM_ENABLE_PROJECTS=clang `
             -DLLVM_TARGETS_TO_BUILD=X86 `
             -DLLVM_ENABLE_ASSERTIONS=OFF
@@ -76,7 +77,7 @@ jobs:
         if: steps.llvm-cache.outputs.cache-hit != 'true' && success()
         uses: actions/cache/save@v4
         with:
-          path: build-llvm
+          path: llvm-install
           key: llvm-${{ runner.os }}-${{ env.LLVM_REF }}-clang-${{ env.CACHE_VERSION }}
 
       # -------------------------
@@ -90,8 +91,8 @@ jobs:
             -B build-iwyu `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DLLVM_DIR="install/lib/cmake/llvm" `
-            -DClang_DIR="install/lib/cmake/clang"
+            -DLLVM_DIR="llvm-install/lib/cmake/llvm" `
+            -DClang_DIR="llvm-install/lib/cmake/clang"
 
       # -------------------------
       # Build IWYU
