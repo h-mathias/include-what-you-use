@@ -8,12 +8,16 @@ on:
 
 env:
   LLVM_REF: llvmorg-22.1.8
+  CACHE_VERSION: v1
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
+      # -------------------------
+      # Checkout sources
+      # -------------------------
       - name: Checkout IWYU
         uses: actions/checkout@v4
         with:
@@ -26,39 +30,81 @@ jobs:
           ref: ${{ env.LLVM_REF }}
           path: llvm-project
 
-      - name: Restore LLVM build cache
+      # -------------------------
+      # Restore LLVM cache
+      # -------------------------
+      - name: Restore LLVM cache
         id: llvm-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: build
-          key: llvm-${{ runner.os }}-${{ env.LLVM_REF }}-ninja
+          path: build-llvm
+          key: llvm-${{ runner.os }}-${{ env.LLVM_REF }}-clang-${{ env.CACHE_VERSION }}
+          restore-keys: |
+            llvm-${{ runner.os }}-${{ env.LLVM_REF }}-clang-
+            llvm-${{ runner.os }}-
 
+      # -------------------------
+      # Configure LLVM
+      # -------------------------
       - name: Configure LLVM
         if: steps.llvm-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           cmake `
             -S llvm-project/llvm `
-            -B build `
+            -B build-llvm `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DLLVM_ENABLE_PROJECTS=clang `
-            -DLLVM_EXTERNAL_PROJECTS=include-what-you-use `
-            -DLLVM_EXTERNAL_INCLUDE_WHAT_YOU_USE_SOURCE_DIR="${{ github.workspace }}/include-what-you-use"
+            -DLLVM_TARGETS_TO_BUILD=X86 `
+            -DLLVM_ENABLE_ASSERTIONS=OFF
 
+      # -------------------------
+      # Build LLVM + Clang
+      # -------------------------
       - name: Build LLVM + Clang
         if: steps.llvm-cache.outputs.cache-hit != 'true'
         run: |
-          cmake --build build --config Release --target clang
+          cmake --build build-llvm --target clang --config Release
 
+      # -------------------------
+      # Save LLVM cache immediately
+      # -------------------------
+      - name: Save LLVM cache
+        if: steps.llvm-cache.outputs.cache-hit != 'true' && success()
+        uses: actions/cache/save@v4
+        with:
+          path: build-llvm
+          key: llvm-${{ runner.os }}-${{ env.LLVM_REF }}-clang-${{ env.CACHE_VERSION }}
+
+      # -------------------------
+      # Configure IWYU
+      # -------------------------
+      - name: Configure IWYU
+        shell: pwsh
+        run: |
+          cmake `
+            -S include-what-you-use `
+            -B build-iwyu `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DLLVM_DIR="${{ github.workspace }}/build-llvm/lib/cmake/llvm" `
+            -DClang_DIR="${{ github.workspace }}/build-llvm/lib/cmake/clang"
+
+      # -------------------------
+      # Build IWYU
+      # -------------------------
       - name: Build include-what-you-use
         run: |
-          cmake --build build --config Release --target include-what-you-use
+          cmake --build build-iwyu --target include-what-you-use --config Release
 
+      # -------------------------
+      # Upload artifact (even if build step fails)
+      # -------------------------
       - name: Upload include-what-you-use.exe
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: include-what-you-use-windows
           path: |
-            build/bin/include-what-you-use.exe
-            build/**/include-what-you-use.exe
+            build-iwyu/bin/include-what-you-use.exe
