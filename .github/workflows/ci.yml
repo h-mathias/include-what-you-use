@@ -86,13 +86,17 @@ jobs:
       - name: Configure IWYU
         shell: pwsh
         run: |
+          $workspace = "${{ github.workspace }}" -replace '\\', '/'
+          $llvmDir = "$workspace/llvm-install/lib/cmake/llvm"
+          $clangDir = "$workspace/llvm-install/lib/cmake/clang"
+      
           cmake `
             -S include-what-you-use `
             -B build-iwyu `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DLLVM_DIR="llvm-install/lib/cmake/llvm" `
-            -DClang_DIR="llvm-install/lib/cmake/clang"
+            -DLLVM_DIR="$llvmDir" `
+            -DClang_DIR="$clangDir"
 
       # -------------------------
       # Build IWYU
