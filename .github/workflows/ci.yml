@@ -30,7 +30,7 @@ jobs:
         id: llvm-cache
         uses: actions/cache/restore@v4
         with:
-          path: build-llvm
+          path: llvm-install
           key: llvm-${{ runner.os }}-${{ env.LLVM_REF }}-clang-${{ env.CACHE_VERSION }}
           restore-keys: |
             llvm-${{ runner.os }}-${{ env.LLVM_REF }}-clang-
