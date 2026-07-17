@@ -88,8 +88,8 @@ jobs:
             -B build-iwyu `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DLLVM_DIR="${{ github.workspace }}/build-llvm/lib/cmake/llvm" `
-            -DClang_DIR="${{ github.workspace }}/build-llvm/lib/cmake/clang"
+            -DLLVM_DIR="build-llvm/lib/cmake/llvm" `
+            -DClang_DIR="build-llvm/lib/cmake/clang"
 
       # -------------------------
       # Build IWYU
