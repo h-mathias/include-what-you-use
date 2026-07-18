@@ -107,7 +107,7 @@ jobs:
       # -------------------------
       - name: Build include-what-you-use
         run: |
-          cmake --build build-iwyu --target include-what-you-use --config Release
+          cmake --build build-iwyu --target install --config Release
 
       # -------------------------
       # Upload artifact (even if build step fails)
