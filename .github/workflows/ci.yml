@@ -9,7 +9,7 @@ on:
 env:
   IWYU_REF: clang_22
   LLVM_REF: llvmorg-22.1.8
-  CACHE_VERSION: v3
+  CACHE_VERSION: v4
 
 jobs:
   build:
