@@ -98,6 +98,7 @@ jobs:
             -B build-iwyu `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_INSTALL_PREFIX=iwyu-install `
             -DLLVM_DIR="$llvmDir" `
             -DClang_DIR="$clangDir"
 
@@ -111,10 +112,8 @@ jobs:
       # -------------------------
       # Upload artifact (even if build step fails)
       # -------------------------
-      - name: Upload include-what-you-use.exe
-        if: always()
+      - name: Upload include-what-you-use
         uses: actions/upload-artifact@v4
         with:
           name: include-what-you-use-windows
-          path: |
-            build-iwyu/bin/include-what-you-use.exe
+          path: iwyu-install
