@@ -9,7 +9,7 @@ on:
 env:
   IWYU_REF: clang_22
   LLVM_REF: llvmorg-22.1.8
-  CACHE_VERSION: v2
+  CACHE_VERSION: v3
 
 jobs:
   build:
@@ -57,7 +57,6 @@ jobs:
           cmake `
             -S llvm-project/llvm `
             -B build-llvm `
-            -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_INSTALL_PREFIX=llvm-install `
             -DLLVM_ENABLE_PROJECTS=clang `
@@ -96,7 +95,6 @@ jobs:
           cmake `
             -S include-what-you-use `
             -B build-iwyu `
-            -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_INSTALL_PREFIX=iwyu-install `
             -DLLVM_DIR="$llvmDir" `
