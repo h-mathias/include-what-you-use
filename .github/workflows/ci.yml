@@ -9,7 +9,7 @@ on:
 env:
   IWYU_REF: clang_22
   LLVM_REF: llvmorg-22.1.8
-  CACHE_VERSION: v4
+  CACHE_VERSION: v5
 
 jobs:
   build:
@@ -58,6 +58,7 @@ jobs:
             -S llvm-project/llvm `
             -B build-llvm `
             -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded `
             -DCMAKE_INSTALL_PREFIX=llvm-install `
             -DLLVM_ENABLE_PROJECTS=clang `
             -DLLVM_TARGETS_TO_BUILD=X86 `
@@ -96,6 +97,7 @@ jobs:
             -S include-what-you-use `
             -B build-iwyu `
             -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded `
             -DCMAKE_INSTALL_PREFIX=iwyu-install `
             -DLLVM_DIR="$llvmDir" `
             -DClang_DIR="$clangDir"
